@@ -1,0 +1,486 @@
+{% extends "base.html" %}
+
+{% block title %}数据采集 - 智能瞭望{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="text-gradient">
+                <i class="fas fa-spider"></i> 数据采集
+            </h1>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card fade-in">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-search"></i> 搜索配置
+                </h5>
+            </div>
+            <div class="card-body">
+                <form id="searchForm">
+                    <div class="mb-3">
+                        <label for="keyword" class="form-label">
+                            <i class="fas fa-key"></i> 搜索关键词
+                        </label>
+                        <input type="text" class="form-control" id="keyword" name="keyword" 
+                               placeholder="请输入要搜索的关键词，如：人工智能、区块链等" required>
+                        <div class="form-text">支持中文关键词搜索，系统将从百度获取相关数据</div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="maxResults" class="form-label">
+                                    <i class="fas fa-list-ol"></i> 最大结果数
+                                </label>
+                                <select class="form-select" id="maxResults" name="max_results">
+                                    <option value="10">10 条</option>
+                                    <option value="20" selected>20 条</option>
+                                    <option value="30">30 条</option>
+                                    <option value="50">50 条</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="timeout" class="form-label">
+                                    <i class="fas fa-clock"></i> 超时时间
+                                </label>
+                                <select class="form-select" id="timeout" name="timeout">
+                                    <option value="30">30 秒</option>
+                                    <option value="60" selected>60 秒</option>
+                                    <option value="90">90 秒</option>
+                                    <option value="120">120 秒</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary" id="startSearchBtn">
+                            <i class="fas fa-play"></i> 开始搜索
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" id="clearBtn">
+                            <i class="fas fa-eraser"></i> 清空输入
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card fade-in">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-info-circle"></i> 搜索状态
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="searchStatus">
+                    <div class="text-center text-muted">
+                        <i class="fas fa-pause-circle fa-3x mb-3"></i>
+                        <p>等待开始搜索...</p>
+                    </div>
+                </div>
+                
+                <div id="searchProgress" class="mt-3" style="display: none;">
+                    <div class="progress">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                             role="progressbar" style="width: 0%"></div>
+                    </div>
+                    <small class="text-muted">搜索进度: <span id="progressText">0%</span></small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card fade-in mt-3">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-lightbulb"></i> 使用提示
+                </h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled">
+                    <li class="mb-2"><i class="fas fa-check text-success"></i> 输入准确的关键词</li>
+                    <li class="mb-2"><i class="fas fa-check text-success"></i> 搜索过程可能需要一些时间</li>
+                    <li class="mb-2"><i class="fas fa-check text-success"></i> 结果可以批量保存到数据库</li>
+                    <li class="mb-2"><i class="fas fa-check text-success"></i> 支持数据导出和报告生成</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4" id="resultsSection" style="display: none;">
+    <div class="col-12">
+        <div class="card fade-in">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-list"></i> 搜索结果
+                </h5>
+                <div>
+                    <button class="btn btn-outline-primary btn-sm" id="selectAllBtn">
+                        <i class="fas fa-check-square"></i> 全选
+                    </button>
+                    <button class="btn btn-primary btn-sm" id="saveSelectedBtn">
+                        <i class="fas fa-save"></i> 保存选中项
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="searchResults"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 等待DOM完全加载
+document.addEventListener('DOMContentLoaded', function() {
+    initializeCrawlerPage();
+});
+
+let currentJobId = null;
+let searchResults = [];
+
+function initializeCrawlerPage() {
+    console.log('爬虫页面初始化完成');
+    
+    // 检查必要的DOM元素是否存在
+    const searchForm = document.getElementById('searchForm');
+    const clearBtn = document.getElementById('clearBtn');
+    const selectAllBtn = document.getElementById('selectAllBtn');
+    const saveSelectedBtn = document.getElementById('saveSelectedBtn');
+    
+    if (!searchForm) {
+        console.error('searchForm元素未找到');
+        return;
+    }
+    
+    // 绑定事件监听器
+    searchForm.addEventListener('submit', handleSearchSubmit);
+    
+    if (clearBtn) {
+        clearBtn.addEventListener('click', handleClearClick);
+    }
+    
+    if (selectAllBtn) {
+        selectAllBtn.addEventListener('click', handleSelectAllClick);
+    }
+    
+    if (saveSelectedBtn) {
+        saveSelectedBtn.addEventListener('click', handleSaveSelectedClick);
+    }
+}
+
+// 表单提交处理
+async function handleSearchSubmit(e) {
+    e.preventDefault();
+    
+    const keyword = document.getElementById('keyword').value.trim();
+    if (!keyword) {
+        showNotification('请输入搜索关键词', 'error');
+        return;
+    }
+    
+    const startBtn = document.getElementById('startSearchBtn');
+    const originalText = startBtn.innerHTML;
+    
+    try {
+        showLoading(startBtn, '<i class="fas fa-spinner fa-spin"></i> 搜索中...');
+        
+        const response = await fetch('{{ url_for("crawler.start_search") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include', // 包含session cookies
+            body: JSON.stringify({
+                keyword: keyword,
+                max_results: document.getElementById('maxResults').value,
+                timeout: document.getElementById('timeout').value
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            currentJobId = data.job_id;
+            showNotification(data.message, 'success');
+            updateSearchStatus('running');
+            startStatusCheck();
+        } else {
+            showNotification(data.message, 'error');
+            updateSearchStatus('error');
+        }
+        
+    } catch (error) {
+        showNotification('搜索请求失败: ' + error.message, 'error');
+        updateSearchStatus('error');
+    } finally {
+        hideLoading(startBtn, originalText);
+    }
+}
+
+// 清空输入
+function handleClearClick() {
+    document.getElementById('keyword').value = '';
+    document.getElementById('searchResults').innerHTML = '';
+    document.getElementById('resultsSection').style.display = 'none';
+    updateSearchStatus('idle');
+}
+
+// 更新搜索状态
+function updateSearchStatus(status) {
+    const statusElement = document.getElementById('searchStatus');
+    const progressElement = document.getElementById('searchProgress');
+    
+    switch (status) {
+        case 'running':
+        case 'searching':
+            statusElement.innerHTML = `
+                <div class="text-center text-primary">
+                    <i class="fas fa-search fa-spin fa-3x mb-3"></i>
+                    <p>正在搜索中...</p>
+                </div>
+            `;
+            progressElement.style.display = 'block';
+            break;
+            
+        case 'parsing':
+            statusElement.innerHTML = `
+                <div class="text-center text-info">
+                    <i class="fas fa-code fa-spin fa-3x mb-3"></i>
+                    <p>正在解析结果...</p>
+                </div>
+            `;
+            progressElement.style.display = 'block';
+            break;
+            
+        case 'saving':
+            statusElement.innerHTML = `
+                <div class="text-center text-warning">
+                    <i class="fas fa-database fa-spin fa-3x mb-3"></i>
+                    <p>正在保存数据...</p>
+                </div>
+            `;
+            progressElement.style.display = 'block';
+            break;
+            
+        case 'completed':
+            statusElement.innerHTML = `
+                <div class="text-center text-success">
+                    <i class="fas fa-check-circle fa-3x mb-3"></i>
+                    <p>搜索完成！</p>
+                </div>
+            `;
+            progressElement.style.display = 'none';
+            break;
+            
+        case 'failed':
+        case 'error':
+            statusElement.innerHTML = `
+                <div class="text-center text-danger">
+                    <i class="fas fa-times-circle fa-3x mb-3"></i>
+                    <p>搜索失败</p>
+                </div>
+            `;
+            progressElement.style.display = 'none';
+            break;
+            
+        default:
+            statusElement.innerHTML = `
+                <div class="text-center text-muted">
+                    <i class="fas fa-pause-circle fa-3x mb-3"></i>
+                    <p>等待开始搜索...</p>
+                </div>
+            `;
+            progressElement.style.display = 'none';
+    }
+}
+
+// 更新进度条
+function updateProgress(percentage) {
+    const progressBar = document.querySelector('.progress-bar');
+    const progressText = document.getElementById('progressText');
+    
+    progressBar.style.width = percentage + '%';
+    progressText.textContent = percentage + '%';
+}
+
+// 开始状态检查
+function startStatusCheck() {
+    if (!currentJobId) return;
+    
+    const checkInterval = setInterval(async () => {
+        try {
+            const response = await fetch(`{{ url_for("crawler.search_status", job_id=0) }}`.replace('0', currentJobId), {
+                credentials: 'include' // 包含session cookies
+            });
+            const data = await response.json();
+            
+            if (data.success) {
+                if (data.status === 'completed') {
+                    clearInterval(checkInterval);
+                    updateSearchStatus('completed');
+                    loadSearchResults();
+                    showNotification('搜索任务已完成！', 'success');
+                } else if (data.status === 'failed') {
+                    clearInterval(checkInterval);
+                    updateSearchStatus('error');
+                    showNotification('搜索任务失败', 'error');
+                } else {
+                    // 使用真实的进度数据
+                    if (data.progress !== undefined) {
+                        updateProgress(data.progress);
+                    } else {
+                        // 如果没有进度数据，使用模拟进度
+                        const progress = Math.min(90, 20 + Math.random() * 60);
+                        updateProgress(Math.round(progress));
+                    }
+                }
+            }
+            
+        } catch (error) {
+            console.error('状态检查失败:', error);
+        }
+    }, 2000);
+}
+
+// 加载搜索结果
+async function loadSearchResults() {
+    if (!currentJobId) return;
+    
+    try {
+        const response = await fetch(`{{ url_for("crawler.get_search_results", job_id=0) }}`.replace('0', currentJobId), {
+            credentials: 'include' // 包含session cookies
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            searchResults = data.results;
+            displayResults(searchResults);
+            document.getElementById('resultsSection').style.display = 'block';
+        }
+        
+    } catch (error) {
+        showNotification('加载结果失败: ' + error.message, 'error');
+    }
+}
+
+// 显示搜索结果
+function displayResults(results) {
+    const container = document.getElementById('searchResults');
+    
+    if (results.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-5">
+                <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                <p class="text-muted">未找到相关结果</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    results.forEach((result, index) => {
+        html += `
+            <div class="result-item mb-3 p-3 border rounded" data-id="${result.id}">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="result_${result.id}" value="${result.id}">
+                    <label class="form-check-label w-100" for="result_${result.id}">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1">
+                                    <span class="badge bg-primary me-2">#${index + 1}</span>
+                                    ${result.title}
+                                </h6>
+                                <p class="text-muted small mb-2">
+                                    <i class="fas fa-link"></i> ${result.url}
+                                </p>
+                                <p class="mb-2">${result.abstract}</p>
+                                <small class="text-muted">
+                                    <i class="fas fa-tag"></i> ${result.keyword}
+                                </small>
+                            </div>
+                            ${result.cover_url ? `
+                                <div class="ms-3">
+                                    <img src="${result.cover_url}" alt="封面" class="img-thumbnail" style="max-width: 100px; max-height: 80px;">
+                                </div>
+                            ` : ''}
+                        </div>
+                    </label>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+// 全选/取消全选
+function handleSelectAllClick() {
+    const checkboxes = document.querySelectorAll('#searchResults input[type="checkbox"]');
+    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+    
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = !allChecked;
+    });
+    
+    this.innerHTML = allChecked ? 
+        '<i class="fas fa-square"></i> 全选' : 
+        '<i class="fas fa-check-square"></i> 取消全选';
+}
+
+// 保存选中项
+async function handleSaveSelectedClick() {
+    const selectedIds = Array.from(document.querySelectorAll('#searchResults input[type="checkbox"]:checked'))
+        .map(cb => parseInt(cb.value));
+    
+    if (selectedIds.length === 0) {
+        showNotification('请选择要保存的结果', 'warning');
+        return;
+    }
+    
+    const originalText = this.innerHTML;
+    
+    try {
+        showLoading(this, '<i class="fas fa-spinner fa-spin"></i> 保存中...');
+        
+        const response = await fetch('{{ url_for("crawler.save_results") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include', // 包含session cookies
+            body: JSON.stringify({ result_ids: selectedIds })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showNotification(data.message, 'success');
+            // 清空选中状态
+            document.querySelectorAll('#searchResults input[type="checkbox"]').forEach(cb => {
+                cb.checked = false;
+            });
+        } else {
+            showNotification(data.message, 'error');
+        }
+        
+    } catch (error) {
+        showNotification('保存失败: ' + error.message, 'error');
+    } finally {
+        hideLoading(this, originalText);
+    }
+}
+</script>
+{% endblock %}

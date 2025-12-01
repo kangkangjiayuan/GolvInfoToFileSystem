@@ -1,0 +1,326 @@
+{% extends "base.html" %}
+
+{% block title %}数据仓库 - 智能瞭望{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="text-gradient">
+                <i class="fas fa-database"></i> 数据仓库
+            </h1>
+            <div>
+                <a href="{{ url_for('crawler.crawler_page') }}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> 添加数据
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card fade-in">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-filter"></i> 数据筛选
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="GET" class="row g-3">
+                    <div class="col-md-4">
+                        <label for="keyword" class="form-label">关键词</label>
+                        <input type="text" class="form-control" id="keyword" name="keyword" 
+                               value="{{ keyword }}" placeholder="输入关键词进行筛选">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="date_from" class="form-label">开始日期</label>
+                        <input type="date" class="form-control" id="date_from" name="date_from" 
+                               value="{{ date_from }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="date_to" class="form-label">结束日期</label>
+                        <input type="date" class="form-control" id="date_to" name="date_to" 
+                               value="{{ date_to }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">&nbsp;</label>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search"></i> 筛选
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card fade-in">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-list"></i> 数据列表
+                </h5>
+                <div>
+                    <button class="btn btn-outline-primary btn-sm" id="selectAllBtn">
+                        <i class="fas fa-check-square"></i> 全选
+                    </button>
+                    <button class="btn btn-success btn-sm" id="generateReportBtn">
+                        <i class="fas fa-file-pdf"></i> 生成报告
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if results.items %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th width="5%">
+                                    <input type="checkbox" id="checkAll" class="form-check-input">
+                                </th>
+                                <th width="5%">#</th>
+                                <th width="25%">标题</th>
+                                <th width="20%">关键词</th>
+                                <th width="25%">URL</th>
+                                <th width="10%">创建时间</th>
+                                <th width="10%">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for result in results.items %}
+                            <tr>
+                                <td>
+                                    <input type="checkbox" class="form-check-input result-checkbox" 
+                                           value="{{ result.id }}" data-id="{{ result.id }}">
+                                </td>
+                                <td>{{ result.id }}</td>
+                                <td>
+                                    <div class="text-truncate" style="max-width: 300px;" 
+                                         title="{{ result.title }}">
+                                        <strong>{{ result.title }}</strong>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-primary">{{ result.keyword }}</span>
+                                </td>
+                                <td>
+                                    <div class="text-truncate" style="max-width: 250px;" 
+                                         title="{{ result.url }}">
+                                        <a href="{{ result.url }}" target="_blank" class="text-decoration-none">
+                                            {{ result.url }}
+                                        </a>
+                                    </div>
+                                </td>
+                                <td>
+                                    <small class="text-muted">
+                                        {{ result.created_at.strftime('%Y-%m-%d') }}
+                                    </small>
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{{ url_for('warehouse.view_data', result_id=result.id) }}" 
+                                           class="btn btn-outline-primary" title="查看详情">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        <button class="btn btn-outline-danger btn-sm" 
+                                                onclick="deleteResult('{{ result.id }}')" 
+                                                title="删除">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- 分页 -->
+                <nav aria-label="Page navigation">
+                    <ul class="pagination justify-content-center">
+                        {% if results.has_prev %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('warehouse.warehouse_index', page=results.prev_num, **request.args) }}">
+                                <i class="fas fa-chevron-left"></i> 上一页
+                            </a>
+                        </li>
+                        {% endif %}
+                        
+                        {% for page_num in results.iter_pages(left_edge=2, right_edge=2, left_current=2, right_current=2) %}
+                            {% if page_num %}
+                                <li class="page-item {% if page_num == results.page %}active{% endif %}">
+                                    <a class="page-link" href="{{ url_for('warehouse.warehouse_index', page=page_num, **request.args) }}">
+                                        {{ page_num }}
+                                    </a>
+                                </li>
+                            {% else %}
+                                <li class="page-item disabled">
+                                    <span class="page-link">...</span>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if results.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('warehouse.warehouse_index', page=results.next_num, **request.args) }}">
+                                下一页 <i class="fas fa-chevron-right"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-database fa-3x text-muted mb-3"></i>
+                    <p class="text-muted">暂无数据</p>
+                    <a href="{{ url_for('crawler.crawler_page') }}" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> 开始采集数据
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 全选/取消全选
+document.getElementById('checkAll').addEventListener('change', function() {
+    const checkboxes = document.querySelectorAll('.result-checkbox');
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = this.checked;
+    });
+});
+
+// 获取选中的数据ID
+function getSelectedIds() {
+    return Array.from(document.querySelectorAll('.result-checkbox:checked'))
+        .map(cb => parseInt(cb.value));
+}
+
+// 生成报告
+document.getElementById('generateReportBtn').addEventListener('click', async function() {
+    const selectedIds = getSelectedIds();
+    
+    if (selectedIds.length === 0) {
+        showNotification('请选择要生成报告的数据', 'warning');
+        return;
+    }
+    
+    const originalText = this.innerHTML;
+    
+    try {
+        showLoading(this, '<i class="fas fa-spinner fa-spin"></i> 生成中...');
+        
+        const response = await fetch('{{ url_for("warehouse.generate_report") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ selected_ids: selectedIds })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showNotification(data.message, 'success');
+            // 跳转到报告页面
+            setTimeout(() => {
+                window.location.href = '{{ url_for("warehouse.reports_list") }}';
+            }, 1500);
+        } else {
+            showNotification(data.message, 'error');
+        }
+        
+    } catch (error) {
+        showNotification('生成报告失败: ' + error.message, 'error');
+    } finally {
+        hideLoading(this, originalText);
+    }
+});
+
+// 删除数据
+function deleteResult(resultId) {
+    if (confirm('确定要删除这条数据吗？')) {
+        fetch(`{{ url_for('warehouse.delete_result', result_id=0) }}`.replace('0', resultId), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification(data.message, 'success');
+                setTimeout(() => {
+                    location.reload();
+                }, 1500);
+            } else {
+                showNotification(data.message, 'error');
+            }
+        })
+        .catch(error => {
+            showNotification('删除失败: ' + error.message, 'error');
+        });
+    }
+}
+
+// 批量删除
+function batchDelete() {
+    const selectedIds = getSelectedIds();
+    
+    if (selectedIds.length === 0) {
+        showNotification('请先选择要删除的数据', 'warning');
+        return;
+    }
+    
+    if (confirm(`确定要删除选中的 ${selectedIds.length} 条数据吗？`)) {
+        fetch('{{ url_for("warehouse.batch_delete_results") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ result_ids: selectedIds })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification(data.message, 'success');
+                setTimeout(() => {
+                    location.reload();
+                }, 1500);
+            } else {
+                showNotification(data.message, 'error');
+            }
+        })
+        .catch(error => {
+            showNotification('批量删除失败: ' + error.message, 'error');
+        });
+    }
+}
+
+// 页面加载动画
+document.addEventListener('DOMContentLoaded', function() {
+    const elements = document.querySelectorAll('.fade-in');
+    elements.forEach((element, index) => {
+        setTimeout(() => {
+            element.style.opacity = '1';
+            element.style.transform = 'translateY(0)';
+        }, index * 200);
+    });
+});
+
+// 设置初始状态
+document.querySelectorAll('.fade-in').forEach(el => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(20px)';
+    el.style.transition = 'all 0.6s ease';
+});
+</script>
+{% endblock %}

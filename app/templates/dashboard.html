@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+
+{% block title %}控制台 - 智能瞭望{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="text-gradient">
+                <i class="fas fa-tachometer-alt"></i> 控制台
+            </h1>
+            <div>
+                <a href="{{ url_for('crawler.crawler_page') }}" class="btn btn-primary">
+                    <i class="fas fa-search"></i> 开始搜索
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-4 col-md-6 mb-4">
+        <div class="stats-card">
+            <h3>{{ total_results }}</h3>
+            <p><i class="fas fa-database"></i> 总数据量</p>
+        </div>
+    </div>
+    
+    <div class="col-lg-4 col-md-6 mb-4">
+        <div class="stats-card">
+            <h3>{{ recent_jobs|length }}</h3>
+            <p><i class="fas fa-history"></i> 最近任务</p>
+        </div>
+    </div>
+    
+    <div class="col-lg-4 col-md-6 mb-4">
+        <div class="stats-card">
+            <h3>{{ current_user.username }}</h3>
+            <p><i class="fas fa-user"></i> 当前用户</p>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card fade-in">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-history"></i> 最近搜索任务
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if recent_jobs %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>关键词</th>
+                                <th>状态</th>
+                                <th>结果数量</th>
+                                <th>创建时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for job in recent_jobs %}
+                            <tr>
+                                <td>
+                                    <strong>{{ job.keyword }}</strong>
+                                </td>
+                                <td>
+                                    {% if job.status == 'completed' %}
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-check"></i> 已完成
+                                        </span>
+                                    {% elif job.status == 'running' %}
+                                        <span class="badge bg-warning">
+                                            <i class="fas fa-spinner fa-spin"></i> 进行中
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-danger">
+                                            <i class="fas fa-times"></i> 失败
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if job.results_count %}
+                                        <span class="text-primary fw-bold">{{ job.results_count }}</span>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ job.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                <td>
+                                    {% if job.status == 'completed' and job.results_count > 0 %}
+                                        <a href="{{ url_for('crawler.get_search_results', job_id=job.id) }}" 
+                                           class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-eye"></i> 查看结果
+                                        </a>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                    <p class="text-muted">暂无搜索任务</p>
+                    <a href="{{ url_for('crawler.crawler_page') }}" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> 开始新的搜索
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card fade-in">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-rocket"></i> 快速开始
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('crawler.crawler_page') }}" class="btn btn-primary">
+                        <i class="fas fa-search"></i> 数据采集
+                    </a>
+                    <a href="{{ url_for('warehouse.warehouse_index') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-database"></i> 数据仓库
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card fade-in">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-info-circle"></i> 系统信息
+                </h5>
+            </div>
+            <div class="card-body">
+                <p><strong>系统版本:</strong> v1.0.0</p>
+                <p><strong>最后更新:</strong> {% set current_time = now or current_time %}{{ current_time.strftime('%Y-%m-%d %H:%M') }}</p>
+                <p><strong>用户状态:</strong> <span class="text-success">在线</span></p>
+                <hr>
+                <small class="text-muted">
+                    <i class="fas fa-lightbulb"></i> 
+                    提示：使用数据采集功能开始您的数据分析之旅
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 页面加载动画
+document.addEventListener('DOMContentLoaded', function() {
+    const elements = document.querySelectorAll('.fade-in');
+    elements.forEach((element, index) => {
+        setTimeout(() => {
+            element.style.opacity = '1';
+            element.style.transform = 'translateY(0)';
+        }, index * 200);
+    });
+});
+
+// 设置初始状态
+document.querySelectorAll('.fade-in').forEach(el => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(20px)';
+    el.style.transition = 'all 0.6s ease';
+});
+</script>
+{% endblock %}
