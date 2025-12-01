@@ -4,7 +4,7 @@ import json
 import unittest
 from datetime import datetime
 
-from src.data_retrieval.models import DataRecord, SearchResult
+from src.data_retrieval import DataRecord, SearchResult
 
 
 class TestDataRecord(unittest.TestCase):
