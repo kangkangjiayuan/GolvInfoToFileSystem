@@ -1,0 +1,3 @@
+# 数据检索系统依赖 - Data Retrieval System Dependencies
+# 标准库已包含所有必需的功能，无需额外依赖
+# All required functionality is included in the standard library, no additional dependencies needed
